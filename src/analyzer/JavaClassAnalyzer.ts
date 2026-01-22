@@ -327,14 +327,17 @@ export class JavaClassAnalyzer {
 
 
     /**
-     * 获取javap命令路径
+     * 获取javap命令路径（跨平台支持）
      */
     private getJavapCommand(): string {
         const javaHome = process.env.JAVA_HOME;
+        const isWindows = process.platform === 'win32';
+        const javapName = isWindows ? 'javap.exe' : 'javap';
+
         if (javaHome) {
-            return path.join(javaHome, 'bin', 'javap.exe');
+            return path.join(javaHome, 'bin', javapName);
         }
-        return 'javap';
+        return javapName;
     }
 
     /**

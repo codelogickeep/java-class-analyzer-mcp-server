@@ -215,7 +215,17 @@ export class DecompilerService {
      * 查找CFR jar包路径
      */
     private async findCfrJar(): Promise<string> {
-        // 尝试从多个可能的位置查找CFR
+        // 1. 优先检查 CFR_PATH 环境变量
+        const cfrPathEnv = process.env.CFR_PATH;
+        if (cfrPathEnv) {
+            if (await fs.pathExists(cfrPathEnv)) {
+                console.error(`使用环境变量 CFR_PATH: ${cfrPathEnv}`);
+                return cfrPathEnv;
+            }
+            console.warn(`CFR_PATH 环境变量设置但文件不存在: ${cfrPathEnv}`);
+        }
+
+        // 2. 尝试从多个可能的位置查找CFR
         const searchPaths = [
             path.join(process.cwd(), 'lib'),
             process.cwd(),
@@ -233,7 +243,7 @@ export class DecompilerService {
             }
         }
 
-        // 如果没找到，尝试从classpath中查找
+        // 3. 如果没找到，尝试从classpath中查找
         const classpath = process.env.CLASSPATH || '';
         const classpathEntries = classpath.split(path.delimiter);
 
