@@ -26,10 +26,30 @@ export class DependencyScanner {
     private indexCache: Map<string, ClassIndexEntry[]> = new Map();
 
     /**
+     * 获取缓存目录路径
+     * @param projectPath 项目路径
+     * @param cacheName 缓存名称（如 '.mcp-class-index.json' 或 '.mcp-decompile-cache'）
+     * @returns 缓存文件/目录的完整路径
+     */
+    private getCachePath(projectPath: string, cacheName: string): string {
+        // 1. 如果配置了 MCP_CACHE_DIR 环境变量，使用配置的目录
+        if (process.env.MCP_CACHE_DIR) {
+            const projectHash = Buffer.from(projectPath).toString('base64').substring(0, 16);
+            const projectCacheDir = path.join(process.env.MCP_CACHE_DIR, projectHash);
+            return path.join(projectCacheDir, cacheName);
+        }
+
+        // 2. 默认：在运行目录下的 java-class-analyzer-cache 文件夹中，按项目名称创建子目录
+        const projectName = path.basename(projectPath);
+        const defaultCacheDir = path.join(process.cwd(), 'java-class-analyzer-cache', projectName);
+        return path.join(defaultCacheDir, cacheName);
+    }
+
+    /**
      * 扫描Maven项目的所有依赖，建立类名到JAR包的映射索引
      */
     async scanProject(projectPath: string, forceRefresh: boolean = false): Promise<ScanResult> {
-        const indexPath = path.join(projectPath, '.mcp-class-index.json');
+        const indexPath = this.getCachePath(projectPath, '.mcp-class-index.json');
         const isDebug = process.env.NODE_ENV === 'development';
 
         // 如果强制刷新，先删除旧的索引文件
@@ -245,7 +265,7 @@ export class DependencyScanner {
      * 根据类名查找对应的JAR包路径
      */
     async findJarForClass(className: string, projectPath: string): Promise<string | null> {
-        const indexPath = path.join(projectPath, '.mcp-class-index.json');
+        const indexPath = this.getCachePath(projectPath, '.mcp-class-index.json');
 
         if (!await fs.pathExists(indexPath)) {
             throw new Error('类索引不存在，请先运行依赖扫描');
@@ -262,7 +282,7 @@ export class DependencyScanner {
      * 获取所有已索引的类名
      */
     async getAllClassNames(projectPath: string): Promise<string[]> {
-        const indexPath = path.join(projectPath, '.mcp-class-index.json');
+        const indexPath = this.getCachePath(projectPath, '.mcp-class-index.json');
 
         if (!await fs.pathExists(indexPath)) {
             return [];

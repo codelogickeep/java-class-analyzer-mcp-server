@@ -69,7 +69,7 @@ export class DecompilerService {
             console.error(`找到JAR包: ${jarPath}`);
 
             // 3. 从JAR包中提取.class文件
-            const classFilePath = await this.extractClassFile(jarPath, className);
+            const classFilePath = await this.extractClassFile(jarPath, className, projectPath);
 
             // 4. 使用CFR反编译
             const sourceCode = await this.decompileWithCfr(classFilePath);
@@ -104,7 +104,20 @@ export class DecompilerService {
     private getCachePath(className: string, projectPath: string): string {
         const packagePath = className.substring(0, className.lastIndexOf('.'));
         const simpleName = className.substring(className.lastIndexOf('.') + 1);
-        const cacheDir = path.join(projectPath, '.mcp-decompile-cache');
+
+        // 确定缓存基础目录
+        let cacheBaseDir: string;
+        if (process.env.MCP_CACHE_DIR) {
+            // 使用配置的缓存目录，按项目路径 hash 创建子目录
+            const projectHash = Buffer.from(projectPath).toString('base64').substring(0, 16);
+            cacheBaseDir = path.join(process.env.MCP_CACHE_DIR, projectHash);
+        } else {
+            // 默认：在运行目录下的 java-class-analyzer-cache 文件夹中，按项目名称创建子目录
+            const projectName = path.basename(projectPath);
+            cacheBaseDir = path.join(process.cwd(), 'java-class-analyzer-cache', projectName);
+        }
+
+        const cacheDir = path.join(cacheBaseDir, '.mcp-decompile-cache');
         const packageDir = path.join(cacheDir, packagePath.replace(/\./g, path.sep));
         return path.join(packageDir, `${simpleName}.java`);
     }
@@ -112,9 +125,19 @@ export class DecompilerService {
     /**
      * 从JAR包中提取指定的.class文件
      */
-    private async extractClassFile(jarPath: string, className: string): Promise<string> {
+    private async extractClassFile(jarPath: string, className: string, projectPath: string): Promise<string> {
         const classFileName = className.replace(/\./g, '/') + '.class';
-        const tempDir = path.join(process.cwd(), '.mcp-class-temp');
+
+        // 使用与缓存相同的目录结构
+        let tempDir: string;
+        if (process.env.MCP_CACHE_DIR) {
+            const projectHash = Buffer.from(projectPath).toString('base64').substring(0, 16);
+            tempDir = path.join(process.env.MCP_CACHE_DIR, projectHash, '.mcp-class-temp');
+        } else {
+            const projectName = path.basename(projectPath);
+            tempDir = path.join(process.cwd(), 'java-class-analyzer-cache', projectName, '.mcp-class-temp');
+        }
+
         // 按包名全路径创建目录结构
         const packagePath = className.substring(0, className.lastIndexOf('.'));
         const packageDir = path.join(tempDir, packagePath.replace(/\./g, path.sep));

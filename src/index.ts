@@ -254,7 +254,18 @@ export class JavaClassAnalyzerMCPServer {
         const fs = await import('fs-extra');
         const path = await import('path');
 
-        const indexPath = path.join(projectPath, '.mcp-class-index.json');
+        // 使用与 DependencyScanner 相同的缓存路径逻辑
+        const getCachePath = (cacheName: string): string => {
+            if (process.env.MCP_CACHE_DIR) {
+                const projectHash = Buffer.from(projectPath).toString('base64').substring(0, 16);
+                return path.join(process.env.MCP_CACHE_DIR, projectHash, cacheName);
+            }
+            // 默认：在运行目录下的 java-class-analyzer-cache 文件夹中，按项目名称创建子目录
+            const projectName = path.basename(projectPath);
+            return path.join(process.cwd(), 'java-class-analyzer-cache', projectName, cacheName);
+        };
+
+        const indexPath = getCachePath('.mcp-class-index.json');
 
         if (!(await fs.pathExists(indexPath))) {
             console.error('索引文件不存在，正在自动创建...');
